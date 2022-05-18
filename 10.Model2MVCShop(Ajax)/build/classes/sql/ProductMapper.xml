@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper
+		PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+		"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+		
+<mapper namespace="ProductMapper" >
+
+	<resultMap id="productSelectMap" type="com.model2.mvc.service.domain.Product">
+		<result property="prodNo" column="prod_no" jdbcType="INTEGER" />
+		<result property="prodName" column="prod_name" jdbcType="VARCHAR"/>
+		<result property="prodDetail" column="prod_detail" jdbcType="VARCHAR" />
+		<result property="manuDate" column="manufacture_day" jdbcType="VARCHAR" />
+		<result property="price" column="price" jdbcType="NUMERIC" />	
+		<result property="fileName" column="image_file" jdbcType="VARCHAR" />
+		<result property="regDate" column="reg_date" jdbcType="DATE" />
+		<result property="prodCount" column="prod_count" jdbcType="NUMERIC" />
+		<result property="costPrice" column="costPrice" jdbcType="NUMERIC" />
+		<result property="checkEvent" column="checkEvent" jdbcType="VARCHAR"/>	
+	</resultMap>
+
+<!--  
+	<resultMap id="eventSelectMap" type="com.model2.mvc.common.Event" >
+		
+		<result property="dcPersent" column="dc_persent" jdbcType="NUMERIC" />
+		<result property="startDate" column="begin_date" jdbcType="DATE" />
+		<result property="endDate" column="end_date" jdbcType="DATE" />
+		
+		<association property="eventProduct" javaType="com.model2.mvc.service.domain.Product">
+		
+			<result property="prodNo" column="prod_no" jdbcType="INTEGER" />
+			<result property="prodName" column="prod_name" jdbcType="VARCHAR"/>
+			<result property="prodDetail" column="prod_detail" jdbcType="VARCHAR" />
+			<result property="manuDate" column="manufacture_day" jdbcType="VARCHAR" />
+			<result property="price" column="price" jdbcType="NUMERIC" />	
+			<result property="fileName" column="image_file" jdbcType="VARCHAR" />
+			<result property="regDate" column="reg_date" jdbcType="DATE" />
+			<result property="prodCount" column="prod_count" jdbcType="NUMERIC" />
+			<result property="costPrice" column="costPrice" jdbcType="NUMERIC" />
+			<result property="checkDC" column="checkDC" jdbcType="VARCHAR"/>
+		</association>
+		
+	</resultMap>
+-->
+  
+
+	<resultMap id="eventSelectMap" type="com.model2.mvc.common.Event" >
+		<result property="product.costPrice" column="costPrice" jdbcType="NUMERIC" />
+		<result property="startDate" column="begin_date" jdbcType="DATE" />
+		<result property="endDate" column="end_date" jdbcType="DATE" /> 
+		<result property="dcPersent" column="dc_persent" jdbcType="NUMERIC" />
+		<result property="eventType" column="dc_flag" jdbcType="VARCHAR" />
+		<result property="product.prodNo" column="prod_no" jdbcType="NUMERIC" />	 
+		<result property="product.prodName" column="prod_name" jdbcType="VARCHAR"/>
+		<result property="product.prodDetail" column="prod_detail" jdbcType="VARCHAR" />
+		<result property="product.manuDate" column="manufacture_day" jdbcType="VARCHAR" />
+	
+		<result property="product.fileName" column="image_file" jdbcType="VARCHAR" />
+		<result property="product.regDate" column="reg_date" jdbcType="DATE" />
+		<result property="product.prodCount" column="prod_count" jdbcType="NUMERIC" />
+		<result property="product.checkEvent" column="checkEvent" jdbcType="VARCHAR"/>
+		<result property="product.count" column="count" jdbcType="NUMERIC" />
+	</resultMap>
+
+	<select id="getProductCount" parameterType="java.lang.Integer" resultMap="eventSelectMap" >
+		SELECT  
+		p.prod_no , p.prod_name , p.image_file , p.prod_detail , p.manufacture_day , TRUNC(p.price * NVL(dc.dc_persent, 1) ) price , p.price costPrice , c.prod_count count ,        
+		TRUNC( p.price * NVL(dc.dc_persent, 1) ) dc_price , NVL(dc.dc_persent, 1) dc_persent ,    
+		TO_CHAR(ADD_MONTHS(TO_DATE(begin_date, 'YYYY-MM-DD'), 24000) , 'YYYY-MM-DD') begin_date , TO_CHAR(ADD_MONTHS(TO_DATE(end_date, 'YYYY-MM-DD'), 24000) , 'YYYY-MM-DD') end_date , dc.dc_flag , p.reg_date , c.prod_count - NVL(vt.tran_count , 0) prod_count , NVL(dc.dc_flag , 0) checkEvent                
+		FROM product p , (   SELECT prod_no , dc_persent , dc_flag , begin_date , end_date FROM discount WHERE dc_flag != '2'     )  dc  , count c ,  (     SELECT prod_no , SUM ( tran_count ) tran_count FROM t_count GROUP BY prod_no     ) vt  
+		<where>
+			p.prod_no = vt.prod_no(+) AND p.prod_no = dc.prod_no(+) AND p.prod_no = c.prod_no AND p.prod_no=#{prodNo}     
+		</where>
+	</select>
+
+	<insert id="insertProduct" parameterType="com.model2.mvc.service.domain.Product" >
+		INSERT  
+		INTO product ( prod_no , prod_name , prod_detail , manufacture_day , price , image_file , reg_date ) 
+		VALUES ( seq_product_prod_no.nextval , #{prodName} , #{prodDetail:VARCHAR} , TO_CHAR(TO_DATE(#{manuDate:VARCHAR} , 'YYYY-MM-DD') , 'YYYYMMDD') , 
+		#{price:INTEGER} , #{fileName:VARCHAR} , SYSDATE ) 
+	</insert>
+	
+	<insert id="insertProductCount" parameterType="java.lang.Integer" >
+		INSERT 
+		INTO count(prod_no , prod_count) 
+		VALUES(seq_product_prod_no.CURRVAL , #{prodCount}) 
+	</insert>
+
+	<update id="updateProduct" parameterType="com.model2.mvc.service.domain.Product" >
+		UPDATE 
+		product 
+		SET prod_name=#{prodName} , prod_detail=#{prodDetail:VARCHAR} , manufacture_day=#{manuDate:VARCHAR} , price=#{price:INTEGER} , image_file=#{fileName:VARCHAR} 
+		WHERE prod_no=#{prodNo} 
+	</update>
+	
+	<update id="updateProductCount" parameterType="com.model2.mvc.service.domain.Product" >
+		UPDATE 
+		count 
+		SET prod_count=#{prodCount} 
+		WHERE prod_no=#{prodNo} 
+	</update>
+
+	<sql id="productList" >
+		SELECT  
+		p.prod_no , p.prod_name , p.prod_detail , p.manufacture_day , p.price costPrice , NVL(dc.dc_persent, 1) dc_persent ,  dc.begin_date , dc.end_date ,       
+		p.image_file , p.reg_date , c.prod_count - NVL(vt.tran_count , 0) prod_count , NVL(dc.dc_flag , 0) checkEvent  
+		FROM product p , count c ,  (     SELECT prod_no , SUM ( tran_count ) tran_count FROM t_count GROUP BY prod_no     ) vt ,   
+		(   SELECT prod_no , dc_persent , dc_flag , begin_date , end_date FROM discount WHERE dc_flag != '2'     )  dc      
+		<where>
+			 p.prod_no = vt.prod_no(+) AND p.prod_no = dc.prod_no(+) AND   
+			 <if test="searchCondition != null">
+				 	<if test="searchCondition == 0 and searchKeyword !='' ">
+				 		  p.prod_no LIKE #{searchKeyword}||'%' AND  
+				 	</if>
+				 	<if test="searchCondition == 1 and searchKeyword !='' ">
+				 		  p.prod_name LIKE #{searchKeyword}||'%' AND  
+				 	</if>
+				 	<if test="searchCondition == 2 and searchKeyword !='' ">
+				 		  p.price <![CDATA[<=]]> #{searchKeyword} AND  
+				 	</if>
+				 	<if test="searchCondition == 3 and searchKeyword !='' ">
+				 		  p.price <![CDATA[>=]]> #{searchKeyword} AND 
+				 	</if>
+				 	<if test="searchCondition == 4 and searchKeyword !='' ">
+				 		  p.price BETWEEN #{firstPrice} AND #{secondPrice} AND  
+				 	</if>
+			 </if>
+			 p.prod_no = c.prod_no  
+		</where>	
+ 
+		<if test="searchPrice != null">
+			<if test="searchPrice == 0">
+				   ORDER BY p.prod_no		
+			</if>
+			<if test="searchPrice == 1">
+				   ORDER BY p.price ASC 		
+			</if>
+			<if test="searchPrice == 2">
+				   ORDER BY p.price DESC 
+			</if>
+		</if>
+	</sql>
+
+	
+	<select id="getProductList" parameterType="com.model2.mvc.common.Search" resultMap="eventSelectMap" >
+		SELECT * 
+		FROM (   SELECT inner_table.* , ROWNUM AS row_seq 
+				 FROM       (   
+				 			 	 <include refid="productList" /> 
+					  	 		) inner_table  
+					  	 		<where>
+									 	ROWNUM <![CDATA[<=]]> #{currentPage} * #{pageSize} 
+								</where>        )
+						<where>
+						     row_seq BETWEEN (#{currentPage} - 1 ) * #{pageSize} + 1 AND #{currentPage} * #{pageSize}   
+			            </where>	
+	</select>
+
+
+	<select id="totalCount" parameterType="com.model2.mvc.common.Search" resultType="java.lang.Integer">
+		 SELECT COUNT ( * ) FROM 	
+			(   
+				<include refid="productList" />
+				 	) countTable
+	</select>
+	
+	<insert id="discountProduct" parameterType="map">
+		INSERT 
+		INTO discount( prod_no , dc_persent , begin_date , end_date, dc_flag) 
+		VALUES ( #{prodNo} , #{discount} , TO_CHAR(TO_DATE(#{startDate} , 'YYYY-MM-DD') , 'YYYY-MM-DD') , TO_CHAR(TO_DATE(#{endDate} , 'YYYY-MM-DD'), 'YYYY-MM-DD') , 1 ) 
+	</insert>
+	
+	<update id="updateDiscount" parameterType="java.lang.Integer">
+		UPDATE discount 
+		SET dc_flag='2' WHERE prod_no=#{prodNo} 
+	</update>
+	
+	<sql id="discountList" >
+		SELECT    
+		p.prod_no , p.prod_name , p.image_file , p.price costPrice ,   
+		dc.dc_persent ,    
+		TO_CHAR(ADD_MONTHS(TO_DATE(begin_date, 'YYYY-MM-DD'), 24000) , 'YYYY-MM-DD') begin_date , TO_CHAR(ADD_MONTHS(TO_DATE(end_date, 'YYYY-MM-DD'), 24000) , 'YYYY-MM-DD') end_date , dc.dc_flag     
+		FROM product p , discount dc   
+		<where>
+			<if test="searchCondition != null">
+				 	<if test="searchCondition == 0 and searchKeyword !='' ">
+				 		  p.prod_no LIKE #{searchKeyword}||'%' AND  
+				 	</if>
+				 	<if test="searchCondition == 1 and searchKeyword !='' ">
+				 		  p.prod_name LIKE #{searchKeyword}||'%' AND  
+				 	</if>
+				 	<if test="searchCondition == 2 and searchKeyword !='' ">
+				 		  p.price <![CDATA[<=]]> #{searchKeyword} AND  
+				 	</if>
+				 	<if test="searchCondition == 3 and searchKeyword !='' ">
+				 		  p.price <![CDATA[>=]]> #{searchKeyword} AND 
+				 	</if>
+				 	<if test="searchCondition == 4 and searchKeyword !='' ">
+				 		  p.price BETWEEN #{firstPrice} AND #{secondPrice} AND  
+				 	</if>
+			 </if>
+				p.prod_no = dc.prod_no     
+			<if test="searchPrice == null" >
+				ORDER BY p.prod_no 
+			</if>
+			<if test="searchPrice != null">
+				<if test="searchPrice == 0">
+					   ORDER BY p.prod_no   
+				</if>
+				<if test="searchPrice == 1">
+					   ORDER BY p.price ASC 		
+				</if>
+				<if test="searchPrice == 2">
+					   ORDER BY p.price DESC 
+				</if>
+			</if>
+		</where>   
+		
+	</sql>
+	
+	<select id="getDiscountList" parameterType="com.model2.mvc.common.Search" resultMap="eventSelectMap">
+		SELECT * 
+		FROM (   SELECT inner_table.* , ROWNUM AS row_seq 
+				 FROM       (   
+				 			 	 <include refid="discountList" /> 
+					  	 		) inner_table  
+					  	 		<where>
+									 	ROWNUM <![CDATA[<=]]> #{currentPage} * #{pageSize} 
+								</where>        )
+		<where>
+			 row_seq BETWEEN (#{currentPage} - 1 ) * #{pageSize} + 1 AND #{currentPage} * #{pageSize}   
+		</where>	
+	</select>
+	
+	<select id="discountTotalCount" parameterType="com.model2.mvc.common.Search" resultType="java.lang.Integer">
+		 SELECT COUNT ( * ) FROM 	
+			(   
+				<include refid="discountList" />
+				 	) countTable
+	</select>
+	
+	<select id="enterProduct" parameterType="java.util.Map" resultType="java.lang.String">
+		SELECT  
+		<if test="dataType == 'prodName' ">
+			prod_name  
+		</if> 
+		<if test="dataType == 'prodNo' ">
+			prod_no  
+		</if>
+		FROM product   
+		<where>
+			<if test="dataType == 'prodName' ">
+				prod_name LIKE #{dataName}||'%'    
+			</if>
+			<if test="dataType == 'prodNo' ">
+				prod_no  LIKE #{dataName}||'%'    
+			</if>
+		</where>
+	</select>
+
+</mapper>
